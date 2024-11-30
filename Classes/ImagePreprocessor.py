@@ -198,12 +198,12 @@ class ImageProcessor:
     def determiner_besoins_pretraitement(self, luminosite_moyenne, ecart_type, min_val, max_val, saturation_moyenne):
         logging.info("Détermination des besoins de prétraitement en fonction des statistiques de l'image")
         # Déterminer si des étapes de prétraitement sont nécessaires en fonction des statistiques calculées
-        contraste_necessaire = ecart_type < 50
-        luminosite_necessaire = luminosite_moyenne < 100
-        bruit_necessaire = ecart_type > 80
-        dynamique_necessaire = (max_val - min_val) < 100
-        saturation_necessaire = saturation_moyenne < 128
-        troncature_necessaire = (max_val - min_val) < 50
+        contraste_necessaire = ecart_type < 30  # Stricter threshold for contrast
+        luminosite_necessaire = luminosite_moyenne < 80  # Stricter threshold for brightness
+        bruit_necessaire = ecart_type > 100  # Stricter threshold for noise
+        dynamique_necessaire = (max_val - min_val) < 120  # Stricter threshold for dynamic range
+        saturation_necessaire = saturation_moyenne < 100  # Stricter threshold for saturation
+        troncature_necessaire = (max_val - min_val) < 80  # Stricter threshold for truncation
         logging.debug(f"Besoins de prétraitement - Contraste : {contraste_necessaire}, Luminosité : {luminosite_necessaire}, Bruit : {bruit_necessaire}, Dynamique : {dynamique_necessaire}, Saturation : {saturation_necessaire}, Troncature : {troncature_necessaire}")
         return {
             'contraste': contraste_necessaire,
@@ -214,14 +214,15 @@ class ImageProcessor:
             'saturation': saturation_necessaire
         }
 
+
     def traiter_image(self):
         logging.info("Traitement de l'image en fonction des besoins déterminés")
         image = self.image
-        # Déterminer les étapes de prétraitement requises pour l'image
         luminosite_moyenne, ecart_type, min_val, max_val, saturation_moyenne = self.calculer_statistiques(np.array(image))
         traitements = self.determiner_besoins_pretraitement(luminosite_moyenne, ecart_type, min_val, max_val, saturation_moyenne)
         logging.debug(f"Étapes de traitement : {traitements}")
-        # Appliquer chaque étape de prétraitement si nécessaire
+
+        # Preprocess image based on needs
         if traitements['contraste']:
             logging.info("Application de l'amélioration du contraste")
             image = self.ameliorer_contraste(factor=2)
@@ -240,8 +241,13 @@ class ImageProcessor:
         if traitements['troncature']:
             logging.info("Application de la troncature des intensités de l'image")
             image = self.troncature_image(low_percentile=2, high_percentile=98)
-        logging.debug("Traitement de l'image terminé")
+
+        # Post-treatment analysis (optional)
+        post_treatment_stats = self.calculer_statistiques(np.array(image))
+        logging.info(f"Statistiques après traitement : {post_treatment_stats}")
+
         return image
+
 
     def save_image(self, output_path, image=None):
         logging.info(f"Sauvegarde de l'image vers le chemin : {output_path}")
@@ -275,8 +281,8 @@ class ImageProcessor:
         plt.show()
         logging.debug("Images affichées côte à côte")
 
-    def otsu_threshold(self, image_array):
-        logging.info("Calcul du seuil optimal avec la méthode d'Otsu")
+    def otsu_threshold_segmentation(self, image_array):
+        logging.info("Calcul du seuil optimal avec la méthode d'Otsu pour la segmentation")
         # Calculer l'histogramme de l'image
         hist, bin_edges = np.histogram(image_array, bins=256, range=(0, 255))
         plt.figure(figsize=(10, 5))
@@ -306,24 +312,18 @@ class ImageProcessor:
         logging.debug(f"Seuil optimal déterminé par la méthode d'Otsu : {optimal_threshold}")
         return optimal_threshold
 
-    def test_image(self, image_path):
-        logging.info("Test de l'image avec la méthode de seuillage d'Otsu")
-        # Traiter l'image et la convertir en niveaux de gris pour le seuillage
-        processed_image = self.traiter_image()
-        processed_image = processed_image.convert('L')
-        processed_image_array = np.array(processed_image)
+    def segment_image_using_otsu(self):
+        logging.info("Segmentation de l'image avec la méthode d'Otsu")
+        # Convertir l'image en niveaux de gris pour la segmentation
+        grayscale_image = self.image.convert('L')
+        grayscale_array = np.array(grayscale_image)
         # Trouver le seuil optimal avec la méthode d'Otsu
-        optimal_threshold = self.otsu_threshold(processed_image_array)
+        optimal_threshold = self.otsu_threshold_segmentation(grayscale_array)
         logging.info(f"Seuil optimal trouvé par la méthode d'Otsu : {optimal_threshold}")
         # Appliquer le seuil pour créer une image binaire
-        binary_image_array = (processed_image_array > optimal_threshold) * 255
+        binary_image_array = (grayscale_array > optimal_threshold) * 255
         binary_image = Image.fromarray(np.uint8(binary_image_array))
-        # Afficher côte à côte les images originale et binaire
-        plt.subplot(1, 2, 1)
-        plt.title('Image originale')
-        plt.imshow(processed_image_array, cmap='gray')
-        plt.subplot(1, 2, 2)
-        plt.title('Image binaire avec seuil optimal')
-        plt.imshow(binary_image_array, cmap='gray')
-        plt.show()
-        logging.debug("Test de seuillage d'Otsu terminé")
+        binary_image_path = "segmented_image.jpg"
+        binary_image.save(binary_image_path)
+        logging.info(f"Image binaire sauvegardée à : {binary_image_path}")
+        return binary_image_path
