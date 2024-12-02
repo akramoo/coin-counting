@@ -1,3 +1,4 @@
+import pandas as pd
 import os
 import tkinter as tk
 from tkinter import filedialog, messagebox
@@ -8,9 +9,7 @@ import tempfile
 
 def dynamic_filter_image(image_path):
     """Preprocess and filter the image dynamically."""
-    # Step 1: Preprocess the image using ImageProcessor
     preprocessor = ImageProcessor(image_path)
-
     pre_treatment = preprocessor.determiner_besoins_pretraitement(
         preprocessor.luminosite_moyenne, 
         preprocessor.ecart_type, 
@@ -20,15 +19,12 @@ def dynamic_filter_image(image_path):
     )
     processed_image = preprocessor.traiter_image()
 
-    # Create a temporary file for the processed image
     with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as temp_file:
         temp_image_path = temp_file.name
     processed_image.save(temp_image_path)
 
-    # Step 2: Segment the image using Otsu thresholding
     segmented_image_path = preprocessor.segment_image_using_otsu()
 
-    # Step 3: Apply filters using FilterModule
     filter_module = FilterModule(segmented_image_path)
     filtering_needs = filter_module.determine_filtering_needs(
         preprocessor.luminosite_moyenne,
@@ -39,27 +35,49 @@ def dynamic_filter_image(image_path):
     )
     filtered_image = filter_module.apply_filtering(filter_module.images[0], filtering_needs)
 
-    # Save the final image to a temporary file
     with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as final_file:
         final_image_path = final_file.name
     Image.fromarray(filtered_image).save(final_image_path)
-    
-    # Clean up intermediate temporary file
     os.remove(temp_image_path)
-
     return final_image_path
 
 
-def calculate_accuracy(detected_counts, actual_counts):
-    """Calculate accuracy based on detected and actual counts."""
-    correct_detections = sum(1 for detected, actual in zip(detected_counts, actual_counts) if detected == actual)
-    return (correct_detections / len(actual_counts)) * 100
+def calculate_accuracy(img_path, detected_counts):
+    if not os.path.exists(img_path):
+        return {"error": "Image path does not exist."}
+
+    if not isinstance(detected_counts, (int, float)) or detected_counts < 0:
+        return {"error": "Detected counts must be a non-negative number."}
+
+    image_name = os.path.basename(img_path)
+
+    try:
+        dataset = pd.read_csv("./dataset/coins_count_values.csv")
+    except FileNotFoundError:
+        return {"error": "Dataset file not found."}
+    except Exception as e:
+        return {"error": f"Failed to load dataset. Details: {e}"}
+
+    result = dataset[dataset['image_name'] == image_name]
+    if result.empty:
+        return {"error": "Image not found in the dataset."}
+
+    actual_counts = result.iloc[0]['coins_count']
+    try:
+        percentage = (detected_counts * 100) / actual_counts
+    except ZeroDivisionError:
+        return {"error": "Actual counts in the dataset is zero."}
+
+    return {
+        "accuracy_percentage": percentage,
+        "detected_counts": detected_counts,
+        "actual_counts": actual_counts
+    }
 
 
 def open_specific_file():
-    """Open a specific image file."""
     global image_path
-    initial_dir = "/Users/chawkibhd/Desktop/dataset/1/coins_images"
+    initial_dir = "D:/akram/docs/Master ISII/S1/Introduction au Traitement d’Images [ITI]/Project/code/coin-counting/dataset/coins_images/coins_images"
     file_path = filedialog.askopenfilename(
         initialdir=initial_dir,
         title="Sélectionner le fichier image",
@@ -81,7 +99,7 @@ def open_specific_file():
 
 
 def execute_processing():
-    """Execute the image preprocessing and filtering pipeline."""
+    global detected_counts
     if not image_path:
         messagebox.showerror("Erreur", "Veuillez d'abord télécharger une image.")
         return
@@ -97,16 +115,23 @@ def execute_processing():
         panel_processed.config(image=img_resized)
         panel_processed.image = img_resized
 
+        static_detected_count = 7  # Placeholder for actual detection logic
+        result = calculate_accuracy(image_path, static_detected_count)
+
+        if "error" in result:
+            accuracy_label.config(text=f"Erreur : {result['error']}")
+        else:
+            accuracy_label.config(
+                text=f"Précision : {result['accuracy_percentage']:.2f}%\n"
+                     f"Détecté : {result['detected_counts']} | Réel : {result['actual_counts']}"
+            )
     except Exception as e:
         messagebox.showerror("Erreur", f"Impossible de traiter l'image : {e}")
 
 
-# Initialize variables
 image_path = None
-detected_counts = [10, 5, 7, 8, 6, 7]
-actual_counts = [10, 5, 7, 8, 6, 3]
+detected_counts = []
 
-# Create GUI
 root = tk.Tk()
 root.title("Coin Counting")
 root.geometry("800x500")
@@ -139,6 +164,9 @@ panel_original.grid(row=1, column=0, padx=10, pady=10)
 
 label_image_3 = tk.Label(frame_image, text="Image traitée", font=("Helvetica", 14), bg="#f0f8ff", fg="#4682B4")
 label_image_3.grid(row=0, column=1, padx=10, pady=5)
+
+accuracy_label = tk.Label(root, text="Précision : -", font=("Helvetica", 14), bg="#f0f8ff", fg="#4682B4")
+accuracy_label.pack(pady=10)
 
 panel_processed = tk.Label(frame_image)
 panel_processed.grid(row=1, column=1, padx=10, pady=10)
