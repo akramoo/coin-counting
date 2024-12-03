@@ -135,43 +135,46 @@ detected_counts = []
 root = tk.Tk()
 root.title("Coin Counting")
 root.geometry("800x500")
-root.configure(bg="#f0f8ff")
+root.configure(bg="#FFD95B")
 
-title_label = tk.Label(root, text="Coin Counting", font=("Helvetica", 20, "bold"), bg="#b03844", fg="white")
+title_label = tk.Label(root, text="Coin Counting", font=("Helvetica", 20, "bold"), bg="#FF5733", fg="white")
 title_label.pack(fill="x", pady=15)
 
-frame = tk.Frame(root, bg="#f0f8ff")
+frame = tk.Frame(root, bg="#FFD95B")
 frame.pack(pady=20)
 
-label_image = tk.Label(frame, text="Insérer votre image :", font=("Helvetica", 14), bg="#f0f8ff", fg="#4682B4")
+label_image = tk.Label(frame, text="Insérer votre image :", font=("Helvetica", 14), bg="#FFD95B", fg="#000000")
 label_image.grid(row=1, column=0, padx=10, pady=10, sticky="e")
-button_uploader = tk.Button(frame, text="Uploader", command=open_specific_file, font=("Helvetica", 14), bg="#b58c1d", fg="white")
+button_uploader = tk.Button(frame, text="Uploader", command=open_specific_file, font=("Helvetica", 14), bg="#b58c1d", fg="white",
+                           activebackground="#16a085", activeforeground="white", relief="raised", bd=5, padx=10, pady=5)
 button_uploader.grid(row=1, column=1, padx=10, pady=10)
 
-label_image = tk.Label(frame, text="Exécuter :", font=("Helvetica", 14), bg="#f0f8ff", fg="#4682B4")
-label_image.grid(row=2, column=0, padx=10, pady=10, sticky="e")
-button_execute = tk.Button(frame, text="Exécuter", command=execute_processing, font=("Helvetica", 14), bg="#1db58c", fg="white")
+#label_image = tk.Label(frame, text="Exécuter :", font=("Helvetica", 14), bg="#f0f8ff", fg="#4682B4")
+#label_image.grid(row=2, column=0, padx=10, pady=10, sticky="e")
+button_execute = tk.Button(frame, text="Exécuter", command=execute_processing, font=("Helvetica", 14), bg="#FFD95B", fg="white",
+                           activebackground="#16a085", activeforeground="black", relief="raised", bd=5, padx=10, pady=5)
 button_execute.grid(row=2, column=1, padx=10, pady=10)
 
-frame_image = tk.Frame(root, bg="#f0f8ff")
+
+frame_image = tk.Frame(root, bg="#DAF7A6")
 frame_image.pack(pady=20)
 
-label_image_2 = tk.Label(frame_image, text="Image d'origine", font=("Helvetica", 14), bg="#f0f8ff", fg="#4682B4")
+label_image_2 = tk.Label(frame_image, text="Image d'origine", font=("Helvetica", 14), bg="#DAF7A6", fg="#000000")
 label_image_2.grid(row=0, column=0, padx=10, pady=5)
 
 panel_original = tk.Label(frame_image)
 panel_original.grid(row=1, column=0, padx=10, pady=10)
 
-label_image_3 = tk.Label(frame_image, text="Image traitée", font=("Helvetica", 14), bg="#f0f8ff", fg="#4682B4")
+label_image_3 = tk.Label(frame_image, text="Image traitée", font=("Helvetica", 14), bg="#DAF7A6", fg="#000000")
 label_image_3.grid(row=0, column=1, padx=10, pady=5)
 
-accuracy_label = tk.Label(root, text="Précision : -", font=("Helvetica", 14), bg="#f0f8ff", fg="#4682B4")
+accuracy_label = tk.Label(root, text="Précision : -", font=("Helvetica", 14), bg="#FFD95B", fg="#000000")
 accuracy_label.pack(pady=10)
 
 panel_processed = tk.Label(frame_image)
 panel_processed.grid(row=1, column=1, padx=10, pady=10)
 
-footer_label_3 = tk.Label(root, text="Créé par Chawki et Akram", font=("Helvetica", 10), bg="#f0f8ff", fg="#4682B4")
+footer_label_3 = tk.Label(root, text="Créé par Chawki et Akram", font=("Helvetica", 10), bg="#FFD95B", fg="white")
 footer_label_3.pack(side="bottom", pady=10)
 
 root.mainloop()
