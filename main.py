@@ -11,7 +11,6 @@ import matplotlib.pyplot as plt
 
 
 
-
 def display_results(image, binary_image, circles):
     plt.figure(figsize=(12, 6))
     plt.subplot(1, 2, 1)
