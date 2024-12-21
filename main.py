@@ -6,6 +6,25 @@ from PIL import Image, ImageTk
 from Classes.FilterModule import FilterModule
 from Classes.ImagePreprocessor import ImageProcessor
 import tempfile
+import numpy as np
+import matplotlib.pyplot as plt
+
+
+
+def display_results(image, binary_image, circles):
+    plt.figure(figsize=(12, 6))
+    plt.subplot(1, 2, 1)
+    plt.title("Original Image")
+    plt.imshow(image, cmap='gray')
+    
+    plt.subplot(1, 2, 2)
+    plt.title("Detected Circles")
+    plt.imshow(binary_image, cmap='gray')
+    for (cy, cx, radius) in circles:
+        circle = plt.Circle((cx, cy), radius, color='red', fill=False)
+        plt.gca().add_patch(circle)
+    plt.show()
+
 
 def dynamic_filter_image(image_path):
     """Preprocess and filter the image dynamically."""
@@ -52,7 +71,7 @@ def calculate_accuracy(img_path, detected_counts):
     image_name = os.path.basename(img_path)
 
     try:
-        dataset = pd.read_csv("./dataset/coins_count_values.csv")
+        dataset = pd.read_csv("/Users/chawkibhd/Desktop/dataset/1/coins_count_values.csv")
     except FileNotFoundError:
         return {"error": "Dataset file not found."}
     except Exception as e:
@@ -97,6 +116,43 @@ def open_specific_file():
         except Exception as e:
             messagebox.showerror("Erreur", f"Impossible de charger l'image : {e}")
 
+def detect_large_circles(binary_image, min_area=1000, max_area=10000, circularity_threshold=0.8):
+    h, w = binary_image.shape
+    visited = np.zeros_like(binary_image, dtype=bool)
+    circles = []
+
+    def dfs(x, y):
+        stack = [(x, y)]
+        points = []
+        while stack:
+            cx, cy = stack.pop()
+            if 0 <= cx < h and 0 <= cy < w and not visited[cx, cy] and binary_image[cx, cy] == 255:
+                visited[cx, cy] = True
+                points.append((cx, cy))
+                stack.extend([(cx + 1, cy), (cx - 1, cy), (cx, cy + 1), (cx, cy - 1)])
+        return points
+
+    for i in range(h):
+        for j in range(w):
+            if binary_image[i, j] == 255 and not visited[i, j]:
+                points = dfs(i, j)
+                if points:
+                    area = len(points)
+                    if min_area <= area <= max_area:
+                        perimeter = 0
+                        for x, y in points:
+                            if binary_image[max(0, x - 1):min(h, x + 2), max(0, y - 1):min(w, y + 2)].sum() < 255 * 8:
+                                perimeter += 1
+                        circularity = (4 * np.pi * area) / (perimeter ** 2) if perimeter > 0 else 0
+                        if circularity > circularity_threshold:
+                            cx = sum(p[0] for p in points) / len(points)
+                            cy = sum(p[1] for p in points) / len(points)
+                            radius = np.sqrt(area / np.pi)
+                            circles.append((cy, cx, radius))
+
+    return circles
+
+
 
 def execute_processing():
     global detected_counts
@@ -105,8 +161,14 @@ def execute_processing():
         return
 
     try:
-        final_image_path = dynamic_filter_image(image_path)
-        img = Image.open(final_image_path)
+        # ImageProcessor pour traiter l'image
+        preprocessor = ImageProcessor(image_path)
+        
+        # Utiliser la méthode segment_image_using_otsu de l'objet preprocessor
+        segmented_image_path = preprocessor.segment_image_using_otsu()
+
+        # Charger l'image segmentée
+        img = Image.open(segmented_image_path)
         base_width = 300
         w_percent = (base_width / float(img.size[0]))
         h_size = int((float(img.size[1]) * float(w_percent)))
@@ -115,8 +177,15 @@ def execute_processing():
         panel_processed.config(image=img_resized)
         panel_processed.image = img_resized
 
-        static_detected_count = 7  # Placeholder for actual detection logic
-        result = calculate_accuracy(image_path, static_detected_count)
+        image_array = np.array(img)
+        # Utilisation du seuillage d'Otsu pour binariser l'image
+        binary_image = (image_array < preprocessor.otsu_threshold_segmentation(image_array)) * 255
+        
+        circles = detect_large_circles(binary_image)
+
+        detected_counts = len(circles)  # Nombre réel de cercles détectés
+
+        result = calculate_accuracy(image_path, detected_counts)
 
         if "error" in result:
             accuracy_label.config(text=f"Erreur : {result['error']}")
@@ -125,8 +194,14 @@ def execute_processing():
                 text=f"Précision : {result['accuracy_percentage']:.2f}%\n"
                      f"Détecté : {result['detected_counts']} | Réel : {result['actual_counts']}"
             )
+
+        display_results(image_array, binary_image, circles)
+
     except Exception as e:
         messagebox.showerror("Erreur", f"Impossible de traiter l'image : {e}")
+
+
+
 
 
 image_path = None
