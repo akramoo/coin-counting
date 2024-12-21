@@ -4,7 +4,7 @@ from PIL import Image
 import numpy as np
 from Classes.FilterModule import FilterModule
 from Classes.ImagePreprocessor import ImageProcessor
-
+from Classes.Segmentation import Segmentation
 
 def detect_large_circles(binary_image, min_area=1000, max_area=10000, circularity_threshold=0.8):
     h, w = binary_image.shape
@@ -31,21 +31,38 @@ def detect_large_circles(binary_image, min_area=1000, max_area=10000, circularit
                     if min_area <= area <= max_area:
                         perimeter = 0
                         for x, y in points:
-                            if binary_image[max(0, x - 1):min(h, x + 2), max(0, y - 1):min(w, y + 2)].sum() < 255 * 8:
+                            neighbors = binary_image[max(0, x - 1):min(h, x + 2), max(0, y - 1):min(w, y + 2)]
+                            if np.sum(neighbors == 255) < 8:
                                 perimeter += 1
+
                         circularity = (4 * np.pi * area) / (perimeter ** 2) if perimeter > 0 else 0
+
+                        # Refine circularity calculation to improve accuracy
                         if circularity > circularity_threshold:
                             cx = sum(p[0] for p in points) / len(points)
                             cy = sum(p[1] for p in points) / len(points)
                             radius = np.sqrt(area / np.pi)
-                            circles.append((cy, cx, radius))
 
+                            # Validate radius size and re-check circularity
+                            if min_area <= np.pi * radius ** 2 <= max_area:
+                                avg_intensity = np.mean(binary_image[int(max(0, cx - radius)):int(min(h, cx + radius)), 
+                                                                    int(max(0, cy - radius)):int(min(w, cy + radius))])
+                                if avg_intensity > 200:  # Additional threshold for circle validation
+                                    circles.append((cy, cx, radius))
     return circles
+
+
+def binarize_image(image_array):
+    """Utilisation du seuillage d'Otsu pour binariser l'image."""
+    otsu_threshold = Segmentation().otsu_threshold_segmentation(image_array)
+    binary_image = (image_array < otsu_threshold) * 255
+    return binary_image
 
 
 def calculate_accuracy(img_path, detected_counts):
     try:
-        dataset = pd.read_csv("/Users/chawkibhd/Desktop/dataset/1/coins_count_values.csv")
+        dataset_path = os.path.join(".", "dataset", "coins_count_values.csv")
+        dataset = pd.read_csv(dataset_path)
     except FileNotFoundError:
         return {"error": "Fichier de dataset non trouvé."}
     except Exception as e:
@@ -82,12 +99,13 @@ def test_all_images_in_directory(directory_path, min_accuracy=50):
         image_path = os.path.join(directory_path, image_file)
         
         try:
-            preprocessor = ImageProcessor(image_path)
-            segmented_image_path = preprocessor.segment_image_using_otsu()
+            
+            segmentation = Segmentation()
+            segmented_image_path = segmentation.set_image_from_path(image_path)
 
             img = Image.open(segmented_image_path)
             image_array = np.array(img)
-            binary_image = (image_array < preprocessor.otsu_threshold_segmentation(image_array)) * 255
+            binary_image = binarize_image(image_array)
             circles = detect_large_circles(binary_image)
 
             detected_counts = len(circles)
@@ -111,7 +129,7 @@ def test_all_images_in_directory(directory_path, min_accuracy=50):
 
 
 if __name__ == "__main__":
-    directory = "/Users/chawkibhd/Desktop/dataset/1/coins_images/coins_images/all_coins"
+    directory = "./dataset/coins_images/coins_images/all_coins"
     result_images = test_all_images_in_directory(directory)
 
     if result_images:
