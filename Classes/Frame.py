@@ -7,52 +7,70 @@ import tempfile
 from Classes.FilterModule import FilterModule
 from Classes.ImagePreprocessor import ImageProcessor
 from Classes.Segmentation import Segmentation
-
+from Classes.Morphologie import Morphologie
+import numpy as np
+import matplotlib.pyplot as plt
 class Frame:
     def __init__(self):
         global panel_original, panel_processed, accuracy_label
         self.root = tk.Tk()
         self.root.title("Coin Counting")
         self.root.geometry("800x500")
-        self.root.configure(bg="#f0f8ff")
+        self.root.configure(bg="#FFD95B")
 
         self.image_path = None
 
-        title_label = tk.Label(self.root, text="Coin Counting", font=("Helvetica", 20, "bold"), bg="#b03844", fg="white")
+        title_label = tk.Label(self.root, text="Coin Counting", font=("Helvetica", 20, "bold"), bg="#FF5733", fg="white")
         title_label.pack(fill="x", pady=15)
 
-        frame = tk.Frame(self.root, bg="#f0f8ff")
-        frame.pack(pady=20)
+        # Add a scrollable frame
+        canvas = tk.Canvas(self.root, bg="#FFD95B")
+        scrollbar = tk.Scrollbar(self.root, orient="vertical", command=canvas.yview)
+        scrollable_frame = tk.Frame(canvas, bg="#FFD95B")
 
-        label_image = tk.Label(frame, text="Insérer votre image :", font=("Helvetica", 14), bg="#f0f8ff", fg="#4682B4")
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="center")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        frame = tk.Frame(scrollable_frame, bg="#FFD95B")
+        frame.pack(pady=20, padx=20)
+
+        label_image = tk.Label(frame, text="Insérer votre image :", font=("Helvetica", 14), bg="#FFD95B", fg="#000000")
         label_image.grid(row=1, column=0, padx=10, pady=10, sticky="e")
-        button_uploader = tk.Button(frame, text="Uploader", command=self.open_specific_file, font=("Helvetica", 14), bg="#b58c1d", fg="white")
+        button_uploader = tk.Button(frame, text="Uploader", command=self.open_specific_file, font=("Helvetica", 14), bg="#b58c1d", fg="white",
+                                   activebackground="#16a085", activeforeground="white", relief="raised", bd=5, padx=10, pady=5)
         button_uploader.grid(row=1, column=1, padx=10, pady=10)
 
-        label_execute = tk.Label(frame, text="Exécuter :", font=("Helvetica", 14), bg="#f0f8ff", fg="#4682B4")
-        label_execute.grid(row=2, column=0, padx=10, pady=10, sticky="e")
-        button_execute = tk.Button(frame, text="Exécuter", command=self.execute_processing, font=("Helvetica", 14), bg="#1db58c", fg="white")
+        button_execute = tk.Button(frame, text="Exécuter", command=self.execute_processing, font=("Helvetica", 14), bg="#FFD95B", fg="white",
+                                   activebackground="#16a085", activeforeground="black", relief="raised", bd=5, padx=10, pady=5)
         button_execute.grid(row=2, column=1, padx=10, pady=10)
 
-        frame_image = tk.Frame(self.root, bg="#f0f8ff")
-        frame_image.pack(pady=20)
+        frame_image = tk.Frame(scrollable_frame, bg="#DAF7A6")
+        frame_image.pack(pady=20, padx=20)
 
-        label_image_2 = tk.Label(frame_image, text="Image d'origine", font=("Helvetica", 14), bg="#f0f8ff", fg="#4682B4")
+        label_image_2 = tk.Label(frame_image, text="Image d'origine", font=("Helvetica", 14), bg="#DAF7A6", fg="#000000")
         label_image_2.grid(row=0, column=0, padx=10, pady=5)
 
         panel_original = tk.Label(frame_image)
         panel_original.grid(row=1, column=0, padx=10, pady=10)
 
-        label_image_3 = tk.Label(frame_image, text="Image traitée", font=("Helvetica", 14), bg="#f0f8ff", fg="#4682B4")
+        label_image_3 = tk.Label(frame_image, text="Image traitée", font=("Helvetica", 14), bg="#DAF7A6", fg="#000000")
         label_image_3.grid(row=0, column=1, padx=10, pady=5)
 
-        accuracy_label = tk.Label(self.root, text="Précision : -", font=("Helvetica", 14), bg="#f0f8ff", fg="#4682B4")
-        accuracy_label.pack(pady=10)
+        accuracy_label = tk.Label(scrollable_frame, text="Précision : -", font=("Helvetica", 14), bg="#FFD95B", fg="#000000")
+        accuracy_label.pack(pady=10, padx=20)
 
         panel_processed = tk.Label(frame_image)
         panel_processed.grid(row=1, column=1, padx=10, pady=10)
 
-        footer_label = tk.Label(self.root, text="Créé par Chawki et Akram", font=("Helvetica", 10), bg="#f0f8ff", fg="#4682B4")
+        footer_label = tk.Label(scrollable_frame, text="Créé par Chawki et Akram", font=("Helvetica", 10), bg="#FFD95B", fg="white")
         footer_label.pack(side="bottom", pady=10)
 
     def open_specific_file(self):
@@ -83,7 +101,9 @@ class Frame:
 
         try:
             final_image_path = self.dynamic_filter_image(self.image_path)
+            
             img = Image.open(final_image_path)
+            
             base_width = 300
             w_percent = (base_width / float(img.size[0]))
             h_size = int((float(img.size[1]) * float(w_percent)))
@@ -92,8 +112,14 @@ class Frame:
             panel_processed.config(image=img_resized)
             panel_processed.image = img_resized
 
-            static_detected_count = 7  # Placeholder for actual detection logic
-            result = self.calculate_accuracy(self.image_path, static_detected_count)
+            image_array = np.array(img.convert('L'))
+            morphologie = Morphologie()
+            morphologyimage = morphologie.appliquer_operation(image_array)
+            binary_image = self.binarize_image(morphologyimage)
+
+            circles = self.detect_large_circles(binary_image)
+            detected_counts = len(circles)
+            result = self.calculate_accuracy(self.image_path, detected_counts)
 
             if "error" in result:
                 accuracy_label.config(text=f"Erreur : {result['error']}")
@@ -102,8 +128,101 @@ class Frame:
                     text=f"Précision : {result['accuracy_percentage']:.2f}%\n"
                          f"Détecté : {result['detected_counts']} | Réel : {result['actual_counts']}"
                 )
+
+            self.display_results(image_array, binary_image, circles)
+
         except Exception as e:
             messagebox.showerror("Erreur", f"Impossible de traiter l'image : {e}")
+
+    def binarize_image(self, image_array):
+        """Utilisation du seuillage d'Otsu pour binariser l'image."""
+        otsu_threshold = Segmentation().otsu_threshold_segmentation(image_array)
+        binary_image = (image_array < otsu_threshold) * 255
+        return binary_image
+
+    def detect_large_circles(self, binary_image, min_area=500, max_area=15000, circularity_threshold=0.7):
+        h, w = binary_image.shape
+        visited = np.zeros_like(binary_image, dtype=bool)
+        circles = []
+
+        def dfs(x, y):
+            stack = [(x, y)]
+            points = []
+            while stack:
+                cx, cy = stack.pop()
+                if 0 <= cx < h and 0 <= cy < w and not visited[cx, cy] and binary_image[cx, cy] == 255:
+                    visited[cx, cy] = True
+                    points.append((cx, cy))
+                    stack.extend([(cx + 1, cy), (cx - 1, cy), (cx, cy + 1), (cx, cy - 1)])
+            return points
+
+        for i in range(h):
+            for j in range(w):
+                if binary_image[i, j] == 255 and not visited[i, j]:
+                    points = dfs(i, j)
+                    if points:
+                        area = len(points)
+                        if min_area <= area <= max_area:
+                            perimeter = 0
+                            for x, y in points:
+                                neighbors = binary_image[max(0, x - 1):min(h, x + 2), max(0, y - 1):min(w, y + 2)]
+                                if np.sum(neighbors == 255) < 8:
+                                    perimeter += 1
+
+                            circularity = (4 * np.pi * area) / (perimeter ** 2) if perimeter > 0 else 0
+
+                            # Refine circularity calculation to improve accuracy
+                            if circularity > circularity_threshold:
+                                cx = sum(p[0] for p in points) / len(points)
+                                cy = sum(p[1] for p in points) / len(points)
+                                radius = np.sqrt(area / np.pi)
+
+                                # Relax radius size validation to detect more circles
+                                if np.pi * radius ** 2 <= max_area:
+                                    avg_intensity = np.mean(binary_image[int(max(0, cx - radius)):int(min(h, cx + radius)), 
+                                                                        int(max(0, cy - radius)):int(min(w, cy + radius))])
+                                    if avg_intensity > 150:  # Adjusted threshold for circle validation
+                                        circles.append((cy, cx, radius))
+        return circles
+
+
+    def display_results(self, image_array, binary_image, circles):
+        plt.figure(figsize=(12, 6))
+
+        # Display the original image
+        plt.subplot(1, 2, 1)
+        plt.title("Original Image")
+        plt.axis("off")
+        plt.imshow(image_array, cmap='gray')
+
+        # Create an image with detected circles
+        detected_image = binary_image.copy()
+        fig, ax = plt.subplots()
+        ax.imshow(detected_image, cmap='gray')
+        for (cy, cx, radius) in circles:
+            circle = plt.Circle((cy, cx), radius, color='red', fill=False, linewidth=2)
+            ax.add_patch(circle)
+
+        # Save the figure with circles
+        fig.canvas.draw()
+        data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
+        data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+        plt.close(fig)
+
+        # Display the binary image with detected circles
+        plt.subplot(1, 2, 2)
+        plt.title("Detected Circles")
+        plt.axis("off")
+        plt.imshow(detected_image, cmap='gray')
+        for (cy, cx, radius) in circles:
+            circle = plt.Circle((cy, cx), radius, color='red', fill=False, linewidth=2)
+            plt.gca().add_patch(circle)
+
+        plt.tight_layout()
+        plt.show()
+
+        return data
+
 
     def dynamic_filter_image(self, image_path):
         """Preprocess and filter the image dynamically."""
@@ -175,5 +294,3 @@ class Frame:
 
     def run(self):
         self.root.mainloop()
-
-
