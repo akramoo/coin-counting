@@ -12,7 +12,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 class Frame:
     def __init__(self):
-        global panel_original, panel_processed, accuracy_label
+        global panel_original, panel_processed, accuracy_label, sizes_label
         self.root = tk.Tk()
         self.root.title("Coin Counting")
         self.root.geometry("800x500")
@@ -48,6 +48,7 @@ class Frame:
                                    activebackground="#16a085", activeforeground="white", relief="raised", bd=5, padx=10, pady=5)
         button_uploader.grid(row=1, column=1, padx=10, pady=10)
 
+        # Correction ici pour que la méthode `execute_processing` soit bien référencée
         button_execute = tk.Button(frame, text="Exécuter", command=self.execute_processing, font=("Helvetica", 14), bg="#FFD95B", fg="white",
                                    activebackground="#16a085", activeforeground="black", relief="raised", bd=5, padx=10, pady=5)
         button_execute.grid(row=2, column=1, padx=10, pady=10)
@@ -67,6 +68,9 @@ class Frame:
         accuracy_label = tk.Label(scrollable_frame, text="Précision : -", font=("Helvetica", 14), bg="#FFD95B", fg="#000000")
         accuracy_label.pack(pady=10, padx=20)
 
+        sizes_label = tk.Label(scrollable_frame, text="Tailles : Small: -, Medium: -, Large: -", font=("Helvetica", 14), bg="#FFD95B", fg="#000000")
+        sizes_label.pack(pady=10, padx=20)
+
         panel_processed = tk.Label(frame_image)
         panel_processed.grid(row=1, column=1, padx=10, pady=10)
 
@@ -75,9 +79,9 @@ class Frame:
 
     def open_specific_file(self):
         if os.name == 'nt':
-                           initial_dir = "D:/akram/docs/Master ISII/S1/Introduction au Traitement d’Images [ITI]/Project/code/coin counting/data/coins_images/coins_images"
+            initial_dir = "C:/Users/Whitebay/Desktop/data/coins_images/coins_images"
         else:
-             initial_dir = "/Users/chawkibhd/Desktop/data/coins_images/coins_images"
+            initial_dir = "/Users/chawkibhd/Desktop/data/coins_images/coins_images"
         
         file_path = filedialog.askopenfilename(
             initialdir=initial_dir,
@@ -107,33 +111,48 @@ class Frame:
             final_image_path = self.dynamic_filter_image(self.image_path)
             
             img = Image.open(final_image_path)
-            
-            base_width = 300
-            w_percent = (base_width / float(img.size[0]))
-            h_size = int((float(img.size[1]) * float(w_percent)))
-            img_resized = img.resize((base_width, h_size), Image.Resampling.LANCZOS)
-            img_resized = ImageTk.PhotoImage(img_resized)
-            panel_processed.config(image=img_resized)
-            panel_processed.image = img_resized
 
             image_array = np.array(img.convert('L'))
-            morphologie = Morphologie()
-            morphologyimage = morphologie.appliquer_operation(image_array)
-            binary_image = self.binarize_image(morphologyimage)
+            # morphologie = Morphologie()
+            # morphologyimage = morphologie.appliquer_operation(image_array)
+            binary_image = self.binarize_image(image_array)
 
             circles = self.detect_large_circles(binary_image)
             detected_counts = len(circles)
             result = self.calculate_accuracy(self.image_path, detected_counts)
 
+            # Remplacer l'appel à CoinDetector par la méthode detect_coins
+            small, medium, large, _ = self.detect_coins(circles)
+    
             if "error" in result:
                 accuracy_label.config(text=f"Erreur : {result['error']}")
             else:
+                sizes_label.config(text=f"Tailles : Small: {len(small)}, Medium: {len(medium)}, Large: {len(large)}")
                 accuracy_label.config(
                     text=f"Précision : {result['accuracy_percentage']:.2f}%\n"
                          f"Détecté : {result['detected_counts']} | Réel : {result['actual_counts']}"
                 )
 
-            self.display_results(image_array, binary_image, circles)
+            # Generate the processed image using display_results
+            processed_image = self.display_results(image_array, binary_image, circles)
+
+            # Ensure the processed image is a PIL.Image object
+            if not isinstance(processed_image, Image.Image):
+                raise ValueError("Processed image is not a valid PIL.Image object")
+
+            # Resize the processed image to match the UI requirements
+            base_width = 300
+            w_percent = (base_width / float(processed_image.width))
+            h_size = int((float(processed_image.height) * float(w_percent)))
+            img_resized = processed_image.resize((base_width, h_size), Image.Resampling.LANCZOS)
+
+            # Convert the resized image to an ImageTk object for display
+            img_resized_tk = ImageTk.PhotoImage(img_resized)
+
+            # Update the panel_processed widget to display the processed image
+            panel_processed.config(image=img_resized_tk)
+            panel_processed.image = img_resized_tk
+
 
         except Exception as e:
             messagebox.showerror("Erreur", f"Impossible de traiter l'image : {e}")
@@ -145,6 +164,9 @@ class Frame:
         return binary_image
 
     def detect_large_circles(self, binary_image, min_area=500, max_area=15000, circularity_threshold=0.7):
+        # Ensure binary image is uint8 and binary
+        binary_image = (binary_image > 128).astype(np.uint8) * 255  # Binarize and ensure uint8
+
         h, w = binary_image.shape
         visited = np.zeros_like(binary_image, dtype=bool)
         circles = []
@@ -175,57 +197,44 @@ class Frame:
 
                             circularity = (4 * np.pi * area) / (perimeter ** 2) if perimeter > 0 else 0
 
-                            # Refine circularity calculation to improve accuracy
                             if circularity > circularity_threshold:
                                 cx = sum(p[0] for p in points) / len(points)
                                 cy = sum(p[1] for p in points) / len(points)
                                 radius = np.sqrt(area / np.pi)
 
-                                # Relax radius size validation to detect more circles
-                                if np.pi * radius ** 2 <= max_area:
-                                    avg_intensity = np.mean(binary_image[int(max(0, cx - radius)):int(min(h, cx + radius)), 
-                                                                        int(max(0, cy - radius)):int(min(w, cy + radius))])
-                                    if avg_intensity > 150:  # Adjusted threshold for circle validation
-                                        circles.append((cy, cx, radius))
+                                # Validate region bounds
+                                region = binary_image[
+                                    max(0, int(cx - radius)):min(h, int(cx + radius)),
+                                    max(0, int(cy - radius)):min(w, int(cy + radius))
+                                ]
+                                if region.size == 0:  # Skip invalid regions
+                                    continue
+
+                                avg_intensity = np.mean(region)
+                                if avg_intensity > 150:  # Adjusted threshold for circle validation
+                                    circles.append((cy, cx, radius))
         return circles
 
+    def display_results(self, original_image_array, binary_image, circles):
+        # Create an RGB version of the binary image for visualization
+        detected_image = np.stack([binary_image] * 3, axis=-1).astype(np.uint8)
 
-    def display_results(self, image_array, binary_image, circles):
-        plt.figure(figsize=(12, 6))
-
-        # Display the original image
-        plt.subplot(1, 2, 1)
-        plt.title("Original Image")
-        plt.axis("off")
-        plt.imshow(image_array, cmap='gray')
-
-        # Create an image with detected circles
-        detected_image = binary_image.copy()
-        fig, ax = plt.subplots()
-        ax.imshow(detected_image, cmap='gray')
+        # Draw circles on the detected image
         for (cy, cx, radius) in circles:
-            circle = plt.Circle((cy, cx), radius, color='red', fill=False, linewidth=2)
-            ax.add_patch(circle)
+            rr, cc = np.ogrid[:detected_image.shape[0], :detected_image.shape[1]]
+            mask = (rr - int(cx))**2 + (cc - int(cy))**2 <= radius**2
+            detected_image[mask] = [255, 0, 0]  # Draw red circles
 
-        # Save the figure with circles
-        fig.canvas.draw()
-        data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
-        data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-        plt.close(fig)
+        # Convert the detected image (NumPy array) to a PIL.Image
+        try:
+            pil_image = Image.fromarray(detected_image)
+        except Exception as e:
+            raise ValueError(f"Error converting detected_image to PIL.Image: {e}")
 
-        # Display the binary image with detected circles
-        plt.subplot(1, 2, 2)
-        plt.title("Detected Circles")
-        plt.axis("off")
-        plt.imshow(detected_image, cmap='gray')
-        for (cy, cx, radius) in circles:
-            circle = plt.Circle((cy, cx), radius, color='red', fill=False, linewidth=2)
-            plt.gca().add_patch(circle)
+        # Return the PIL.Image object
+        return pil_image
 
-        plt.tight_layout()
-        plt.show()
 
-        return data
 
 
     def dynamic_filter_image(self, image_path):
@@ -298,6 +307,34 @@ class Frame:
             "detected_counts": detected_counts,
             "actual_counts": actual_counts
         }
+    
+    def detect_coins(self, circles):
+        """Détecter les pièces et les classer selon leur taille."""
+        small = []
+        medium = []
+        large = []
+        total_circles_detected = []
+                
+        # Calculer les rayons des cercles
+        for circle in circles:
+            radius = circle[2]  # Extraire le rayon du cercle
+            total_circles_detected.append(radius)
+    
+        if not total_circles_detected:
+            return small, medium, large, 0
+    
+        # Calculer la moyenne des rayons détectés
+        mean_radius = np.mean(total_circles_detected)
+    
+        for radius in total_circles_detected:
+            if abs(radius - mean_radius) / mean_radius < 0.1:  # Rayon proche de la moyenne
+                medium.append(radius)
+            elif radius > mean_radius:
+                large.append(radius)
+            else:
+                small.append(radius)
+    
+        return small, medium, large, mean_radius
 
     def run(self):
         self.root.mainloop()
