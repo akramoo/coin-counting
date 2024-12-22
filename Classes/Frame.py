@@ -74,7 +74,11 @@ class Frame:
         footer_label.pack(side="bottom", pady=10)
 
     def open_specific_file(self):
-        initial_dir = "D:/akram/docs/Master ISII/S1/Introduction au Traitement d’Images [ITI]/Project/code/coin-counting/dataset/coins_images/coins_images"
+        if os.name == 'nt':
+                           initial_dir = "D:/akram/docs/Master ISII/S1/Introduction au Traitement d’Images [ITI]/Project/code/coin counting/data/coins_images/coins_images"
+        else:
+             initial_dir = "/Users/chawkibhd/Desktop/data/coins_images/coins_images"
+        
         file_path = filedialog.askopenfilename(
             initialdir=initial_dir,
             title="Sélectionner le fichier image",
@@ -270,7 +274,10 @@ class Frame:
         image_name = os.path.basename(img_path)
 
         try:
-            dataset = pd.read_csv("./dataset/coins_count_values.csv")
+            if os.name == 'nt':
+                                dataset = pd.read_csv("./dataset/coins_count_values.csv")
+            else:
+                                dataset = pd.read_csv("/Users/chawkibhd/Desktop/data/coins_count_values.csv")
         except FileNotFoundError:
             return {"error": "Dataset file not found."}
         except Exception as e:
