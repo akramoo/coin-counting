@@ -298,7 +298,7 @@ class Frame:
 
         actual_counts = result.iloc[0]['coins_count']
         try:
-            percentage = (detected_counts * 100) / actual_counts
+            percentage = (min(detected_counts,actual_counts) * 100) / max(actual_counts,detected_counts)
         except ZeroDivisionError:
             return {"error": "Actual counts in the dataset is zero."}
 

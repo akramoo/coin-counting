@@ -130,6 +130,12 @@ def test_all_images_in_directory(directory_path, min_accuracy=50):
 
 if __name__ == "__main__":
     directory = "./dataset/coins_images/coins_images/all_coins"
+
+    if os.name == 'nt':
+                                directory = "./dataset/coins_images/coins_images/all_coins"
+    else:
+               directory = "/Users/chawkibhd/Desktop/data/coins_images/coins_images/all_coins"
+
     result_images = test_all_images_in_directory(directory)
 
     if result_images:
