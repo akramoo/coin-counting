@@ -71,7 +71,7 @@ class Segmentation:
         binary_image_array = (grayscale_array > optimal_threshold) * 255
         binary_image = Image.fromarray(np.uint8(binary_image_array))
 
-        binary_image_path = "segmented_image.jpg"
+        binary_image_path = "./result/segmented_image.jpg"
         binary_image.save(binary_image_path)
         logging.info(f"Image binaire sauvegardée à : {binary_image_path}")
 
