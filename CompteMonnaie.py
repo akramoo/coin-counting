@@ -71,7 +71,7 @@ class CompteMonnaie:
         footer_label.grid(row=5, column=0, columnspan=2, pady=10)
 
     def open_specific_file(self):
-        initial_dir = "./data_done"
+        initial_dir = "./data_done/Images"
 
         file_path = filedialog.askopenfilename(
             initialdir=initial_dir,
@@ -274,7 +274,7 @@ class CompteMonnaie:
         image_name = os.path.basename(img_path)
 
         try:
-            dataset = pd.read_csv("./dataset/coins_count_values.csv")
+            dataset = pd.read_csv("./data_done/coins_count_values.csv")
   
         except FileNotFoundError:
             return {"error": "Dataset file not found."}
