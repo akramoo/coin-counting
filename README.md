@@ -32,7 +32,7 @@
 ---
 
 ## Introduction
-The goal of this project is to develop an automated system for detecting and recognizing coins using advanced image processing techniques. By leveraging computer vision and artificial intelligence, this system aims to:
+The goal of this project is to develop an automated system for detecting and recognizing coins using advanced image processing techniques. By leveraging computer vision, this system aims to:
 - Detect coins in an image
 - Segment them from the background
 - Classify coins based on size or nominal value
